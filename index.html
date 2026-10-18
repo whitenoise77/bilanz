@@ -185,10 +185,22 @@ ${ip.length?`<div class="card"><h3>Passiva nach Klasse</h3>${ip.map(([n,v])=>`<d
 <div class="row tot"><span>Summe Aktiva</span><span>100,0 % · ${f(T)}</span></div></div>
 <div class="card"><div class="row"><span>Summe Aktiva</span><span>${f(T)}</span></div><div class="row"><span>Summe Passiva</span><span class="neg">−${f(TP)}</span></div>
 <div class="row tot"><span>Nettovermögen</span><span>${f(T-TP)}</span></div></div>`}
-function chart(c){const r=c.s.rest,n=r.length,W=300,H=110,mx=r[0]||1;
-const step=Math.max(1,Math.floor(n/60));const pts=[];for(let m=0;m<n;m+=step)pts.push(`${m/(n-1)*W},${H-r[m]/mx*H}`);pts.push(`${W},${H}`);
-let mk='';if(c.mb!=null&&c.mb>0&&c.mb<n)mk=`<line x1="${c.mb/(n-1)*W}" x2="${c.mb/(n-1)*W}" y1="0" y2="${H}" stroke="#e0a030" stroke-dasharray="4 3" stroke-width="2"/>`;
-return`<svg viewBox="0 0 300 120" width="100%"><polyline points="${pts.join(' ')}" fill="none" stroke="#7a3b3b" stroke-width="2.5"/>${mk}</svg><div class="sub">Restschuld bis zur Tilgung${mk?' · orange: Ende der Zinsbindung':''}</div>`}
+function chart(c){const r=c.s.rest,n=r.length,mx=r[0]||1,VW=360,VH=190,ML=54,MR=44,MT=14,MB=34,pw=VW-ML-MR,ph=VH-MT-MB;
+const X=m=>ML+m/(n-1)*pw,Y=v=>MT+ph-v/mx*ph;
+const eur=v=>v<=0?'0 €':(v>=1e6?(v/1e6).toFixed(2).replace('.',',')+' Mio. €':Math.round(v/1000)+' Tsd. €');
+let g='';[1,.75,.5,.25,0].forEach(l=>{const y=Y(mx*l);
+g+=`<line x1="${ML}" x2="${ML+pw}" y1="${y}" y2="${y}" stroke="${l==0?'#1a9b6c':'#e3e7ec'}" stroke-width="${l==0?2:1}"/>
+<text x="${ML-5}" y="${y+3}" text-anchor="end" font-size="9" fill="${l==0?'#1a9b6c':'#6b7785'}" ${l==0?'font-weight="700"':''}>${eur(mx*l)}</text>
+<text x="${ML+pw+5}" y="${y+3}" font-size="9" fill="${l==0?'#1a9b6c':'#6b7785'}" ${l==0?'font-weight="700"':''}>${Math.round((1-l)*100)} %</text>`});
+const yrs=(n-1)/12,stp=yrs>30?10:yrs>15?5:yrs>8?2:1;let xt='';
+for(let y=0;y<=yrs+0.001;y+=stp){const m=y*12;xt+=`<line x1="${X(m)}" x2="${X(m)}" y1="${MT+ph}" y2="${MT+ph+4}" stroke="#6b7785"/><text x="${X(m)}" y="${MT+ph+15}" text-anchor="middle" font-size="9" fill="#6b7785">${addM(c.st,m).getFullYear()}</text>`}
+const step=Math.max(1,Math.floor(n/80));const pts=[];for(let m=0;m<n;m+=step)pts.push(`${X(m)},${Y(r[m])}`);pts.push(`${X(n-1)},${Y(r[n-1])}`);
+const area=`${X(0)},${Y(0)} ${pts.join(' ')} ${X(n-1)},${Y(0)}`;
+let mk='';
+if(c.mh>0&&c.mh<n-1)mk+=`<line x1="${X(c.mh)}" x2="${X(c.mh)}" y1="${MT}" y2="${MT+ph}" stroke="#6b7785" stroke-dasharray="2 3"/><text x="${X(c.mh)}" y="${MT-3}" text-anchor="middle" font-size="9" fill="#6b7785">heute</text>`;
+if(c.mb!=null&&c.mb>0&&c.mb<n-1)mk+=`<line x1="${X(c.mb)}" x2="${X(c.mb)}" y1="${MT}" y2="${MT+ph}" stroke="#e0a030" stroke-dasharray="4 3" stroke-width="2"/><text x="${X(c.mb)}" y="${MT+ph+27}" text-anchor="middle" font-size="9" fill="#b9780d">Zinsbindung</text>`;
+return`<svg viewBox="0 0 ${VW} ${VH}" width="100%">${g}${xt}<polygon points="${area}" fill="#7a3b3b" opacity=".12"/><polyline points="${pts.join(' ')}" fill="none" stroke="#7a3b3b" stroke-width="2.5"/>${mk}<circle cx="${X(n-1)}" cy="${Y(0)}" r="4" fill="#1a9b6c"/></svg>
+<div class="sub">Links: Restschuld in €, 0 € = vollständig getilgt (${fm(c.frei)}). Rechts: Anteil getilgt in % vom Stand am Bewertungsdatum.</div>`}
 function kred(){const l=P().filter(p=>p.typ=='p');
 if(!l.length)return'<div class="card sub">Keine Kredite erfasst. Lege ein Passivum mit Zins, Rate und Zinsbindung an.</div>';
 if(cred){const p=S.pos.find(x=>x.id==cred);if(p)return kdetail(p)}

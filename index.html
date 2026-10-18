@@ -8,12 +8,13 @@ header{background:var(--p);color:#fff;padding:14px 16px 12px;position:sticky;top
 header h1{margin:0;font-size:18px}.seg{display:flex;gap:6px;margin-top:8px}
 .seg button{flex:1;padding:7px;border:0;border-radius:16px;background:#ffffff22;color:#fff;font-size:13px}
 .seg button.on{background:#fff;color:var(--p);font-weight:600}
+.tabs{display:flex;gap:6px;margin-bottom:12px}.tabs button{flex:1;padding:9px 4px;border:0;border-radius:10px;background:#e8ebf0;color:var(--p);font-size:13px}.tabs button.on{background:var(--p);color:#fff}
 main{padding:12px}.card{background:var(--c);border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px #0001}
 .big{font-size:32px;font-weight:700}.sub{color:var(--m);font-size:13px}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.k{background:var(--c);border-radius:12px;padding:12px;box-shadow:0 1px 3px #0001}
 .k b{display:block;font-size:20px;margin-top:4px}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
 .row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid #eef0f3;gap:8px}
-.row:last-child{border:0}.row small{color:var(--m);display:block}.neg{color:var(--r)}
+.row:last-child{border:0}.row small{color:var(--m);display:block}.neg{color:var(--r)}.pos{color:var(--g)}
 nav{position:fixed;bottom:0;left:0;right:0;background:#fff;display:flex;border-top:1px solid #e2e6eb;padding-bottom:env(safe-area-inset-bottom)}
 nav button{flex:1;border:0;background:none;padding:12px 2px;font-size:11px;color:var(--m)}nav button.on{color:var(--p);font-weight:700}
 label{display:block;font-size:12px;color:var(--m);margin:10px 0 3px}input,select,textarea{width:100%;padding:11px;border:1px solid #d5dae1;border-radius:10px;font-size:16px;background:#fff}
@@ -22,6 +23,7 @@ input[type=checkbox]{width:auto}
 h3{margin:4px 0 8px;font-size:15px}.bar{height:8px;border-radius:4px;background:#e8ebf0;overflow:hidden}.bar i{display:block;height:100%}
 .warn{font-size:12px;padding:3px 8px;border-radius:10px;background:#fdf3dc;color:#8a5d00}
 table{width:100%;border-collapse:collapse;font-size:13px}th{color:var(--m);font-weight:500;text-align:right;padding:6px 2px}td{text-align:right;padding:8px 2px;border-top:1px solid #eef0f3}th:first-child,td:first-child{text-align:left}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 #lock{display:none;min-height:100vh;background:var(--p);padding-top:8vh}
 body.locked{padding-bottom:0;background:var(--p)}body.locked #lock{display:block}body.locked header,body.locked main,body.locked nav{display:none}
 body.priv header,body.priv main,body.priv nav{visibility:hidden}
@@ -67,7 +69,7 @@ if(Date.now()<until)return lockUI('Bitte '+Math.ceil((until-Date.now())/1000)+' 
 b.disabled=true;b.textContent='Prüfe …';
 try{const key=await derive(pw,s2b(META.salt),META.iter);const d=await decJ(key,await idbGet('data'));KEY=key;S=d;fails=0;startApp()}
 catch(e){fails++;until=Date.now()+Math.min(30,Math.pow(2,fails))*1000;lockUI('Passwort falsch.')}}
-function startApp(){document.getElementById('lock').innerHTML='';document.body.classList.remove('locked','priv');tab='home';own='Alle';cred=null;edit=null;draw()}
+function startApp(){if(!S.ann)S.ann=defAnn();document.getElementById('lock').innerHTML='';document.body.classList.remove('locked','priv');tab='home';own='Alle';cred=null;edit=null;draw()}
 function lockNow(){S=null;KEY=null;lockUI('')}
 function wipe(){if(confirm('ALLE gespeicherten Daten unwiderruflich löschen?')){indexedDB.deleteDatabase('vb');localStorage.removeItem('vb');setTimeout(()=>location.reload(),300)}}
 document.addEventListener('visibilitychange',()=>{if(!KEY)return;if(document.hidden){hiddenAt=Date.now();document.body.classList.add('priv')}else{document.body.classList.remove('priv');if(Date.now()-hiddenAt>60000)lockNow()}});
@@ -81,12 +83,16 @@ else{blob=JSON.stringify({enc:1,salt:META.salt,iter:META.iter,...await encJ(KEY,
 const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([blob],{type:'application/json'}));a.download=name;a.click()}
 function im(e){const r=new FileReader();r.onload=async()=>{try{let d=JSON.parse(r.result);
 if(d.enc){const pw=prompt('Passwort dieses Backups:');if(!pw)return;d=await decJ(await derive(pw,s2b(d.salt),d.iter),d)}
-if(!d.pos)throw 0;if(!confirm('Aktuelle Daten durch das Backup ersetzen?'))return;S=d;save();tab='home';draw()}catch(x){alert('Datei ungültig oder Passwort falsch')}};r.readAsText(e.target.files[0]);e.target.value=''}
+if(!d.pos)throw 0;if(!confirm('Aktuelle Daten durch das Backup ersetzen?'))return;S=d;if(!S.ann)S.ann=defAnn();save();tab='home';draw()}catch(x){alert('Datei ungültig oder Passwort falsch')}};r.readAsText(e.target.files[0]);e.target.value=''}
 /* ---------- Fachlogik ---------- */
 const KL=['Immobilien','Aktien','ETFs','Anleihen','Lebensversicherung','Gold','Tagesgeld','Bargeld','Krypto','Hypothek','Sonstiges'];
 const COL={Immobilien:'#0f2a43',Aktien:'#1a9b6c',ETFs:'#38b2a0',Anleihen:'#6c8ebf',Lebensversicherung:'#e0a030',Gold:'#d4b13a',Tagesgeld:'#8fb8de',Bargeld:'#a0a8b2',Krypto:'#c8453b',Hypothek:'#7a3b3b',Sonstiges:'#999'};
 const OW=['Alle','Sascha','Janina','Gemeinsam'],LQ=['sofort','mittel','gebunden'];
-let tab='home',own='Alle',edit=null,cred=null,dz=0;
+const RISK=['Aktien','ETFs','Immobilien','Krypto','Gold'];
+const defAnn=()=>({infl:.02,years:30,spar:0,rs:.05,auf:0,ret:{Immobilien:.04,Aktien:.07,ETFs:.06,Anleihen:.03,Lebensversicherung:.035,Gold:.03,Tagesgeld:.015,Bargeld:0,Krypto:.1,Sonstiges:.02}});
+const STR={'Aktiencrash':{Aktien:-.35,ETFs:-.30,Krypto:-.6,Gold:.1},'Immobilien −20 %':{Immobilien:-.2},'Stagflation':{Aktien:-.2,ETFs:-.2,Anleihen:-.1,Immobilien:-.1,Gold:.15},'Große Krise':{Aktien:-.4,ETFs:-.35,Krypto:-.7,Immobilien:-.25,Anleihen:-.05,Gold:.1,Lebensversicherung:-.05}};
+const SC=[['Basis',0,'#0f2a43'],['Optimistisch',.02,'#1a9b6c'],['Pessimistisch',-.02,'#c8453b']];
+let tab='home',own='Alle',edit=null,cred=null,dz=0,zsub='sz',stn='Aktiencrash';
 const f=n=>new Intl.NumberFormat('de-DE',{maximumFractionDigits:0}).format(n)+' €';
 const pc=n=>(n*100).toFixed(1).replace('.',',')+' %';
 const P=()=>S.pos.filter(p=>own=='Alle'||p.owner==own);
@@ -103,6 +109,22 @@ const st=new Date(p.datum),s=sim(+p.wert,+p.zins,+p.rate);const now=new Date();
 const mh=Math.max(0,md(st,now));const heute=s.ok?s.rest[Math.min(mh,s.rest.length-1)]:+p.wert;
 let mb=null;if(p.bindung){mb=md(st,new Date(p.bindung))}
 return{has:true,s,st,mh,heute,mb,frei:s.ok?addM(st,s.n):null,bd:p.bindung?new Date(p.bindung):null}}
+/* Szenarien */
+function cpath(p,Y,dzA){const z=+p.zins,rate=+p.rate;if(!(p.zins!==''&&rate>0))return Array.from({length:Y+1},()=>+p.wert);
+const st=new Date(p.datum),mh=Math.max(0,md(st,new Date())),mb=p.bindung?md(st,new Date(p.bindung)):null;
+const total=mh+12*Y;let R=+p.wert;const arr=[R];
+for(let m=1;m<=total;m++){const zz=(mb!=null&&m>mb)?z+dzA:z;R=R*(1+zz/1200)-rate/12;if(R<0)R=0;arr.push(R)}
+return Array.from({length:Y+1},(_,t)=>arr[mh+12*t])}
+function project(mod,list){const A=S.ann,Y=A.years;const act=list.filter(p=>p.typ=='a'),deb=list.filter(p=>p.typ=='p');
+const paths=deb.map(p=>cpath(p,Y,A.auf/100));const real=[],nom=[];let pot=0;
+for(let t=0;t<=Y;t++){if(t>0)pot=pot*(1+A.rs+mod)+A.spar;
+let as=0;act.forEach(p=>{const r=(A.ret[p.klasse]!=null?A.ret[p.klasse]:.02)+(RISK.includes(p.klasse)?mod:0);as+=(+p.wert)*Math.pow(1+r,t)});
+let de=0;paths.forEach(a=>de+=a[t]);const n=as+pot-de;nom.push(n);real.push(n/Math.pow(1+A.infl,t))}
+return{real,nom}}
+function stress(name,list){const sh=STR[name],rows={};let before=0,after=0,liqB=0,liqA=0,A0=0,A1=0,L=0;
+list.forEach(p=>{const w=+p.wert;if(p.typ=='p'){L+=w;return}const s=sh[p.klasse]||0,w2=w*(1+s);A0+=w;A1+=w2;if(p.liq=='sofort'){liqB+=w;liqA+=w2}
+rows[p.klasse]=rows[p.klasse]||{b:0,a:0};rows[p.klasse].b+=w;rows[p.klasse].a+=w2});
+return{rows,nb:A0-L,na:A1-L,ltvB:A0?L/A0:0,ltvA:A1?L/A1:0,liqB,liqA}}
 function kpi(){const a=P().filter(p=>p.typ=='a'),l=P().filter(p=>p.typ=='p');
 const A=a.reduce((s,p)=>s+ +p.wert,0),L=l.reduce((s,p)=>s+ +p.wert,0);
 const imm=a.filter(p=>p.klasse=='Immobilien').reduce((s,p)=>s+ +p.wert,0);
@@ -133,7 +155,7 @@ return`<div class="card" style="margin-top:12px" onclick="tab='kred';draw()"><h3
 ${nb?`<div class="row"><span><i class="dot" style="background:${nb.col}"></i>Nächste Zinsbindung</span><span>${dates[0].p.name}: ${nb.txt}</span></div>`:''}
 ${last?`<div class="row"><span>Schuldenfrei (alle Kredite)</span><b>${fm(last)}</b></div>`:''}
 ${miss?`<div class="sub">${miss} Kredit(e) ohne Zins/Rate – bitte ergänzen.</div>`:''}</div>`}
-function home(){if(!S.pos.length)return`<div class="card"><h3>Willkommen</h3><div class="sub">Noch keine Daten. Lege Positionen über „Neu" an oder importiere ein Backup unter „Daten".</div>
+function home(){if(!S.pos.length)return`<div class="card"><h3>Willkommen</h3><div class="sub">Noch keine Daten. Lege Positionen an oder importiere ein Backup unter „Daten".</div>
 <button class="btn" onclick="edit=null;tab='form';draw()">Erste Position anlegen</button><button class="btn s" onclick="tab='dat';draw()">Backup importieren</button></div>`;
 const k=kpi();const ampel=(v,g,y)=>v<=g?'var(--g)':v<=y?'var(--o)':'var(--r)';
 return`<div class="card"><div class="sub">Nettovermögen · ${own} · ohne Renten/Pensionen</div><div class="big">${f(k.N)}</div>${spark()}</div>
@@ -144,9 +166,10 @@ return`<div class="card"><div class="sub">Nettovermögen · ${own} · ohne Rente
 <div class="k"><span class="sub">Kreditraten p.a.</span><b>${f(k.rate)}</b></div></div>
 ${credCard()}
 ${k.old?`<div class="card"><span class="warn">${k.old} Position(en) älter als 90 Tage</span></div>`:''}
+<button class="btn" onclick="edit=null;tab='form';draw()">+ Neue Position</button>
 <button class="btn s" onclick="snap();alert('Monatsstand gespeichert')">Monatsstand speichern</button>`}
 function bil(){const g=t=>P().filter(p=>p.typ==t).sort((a,b)=>b.wert-a.wert).map(p=>`<div class="row" onclick="edit=${p.id};tab='form';draw()"><div>${p.name}<small>${p.klasse} · ${p.owner} · ${p.liq} · ${p.datum}</small></div><b>${t=='p'?'−':''}${f(p.wert)}</b></div>`).join('')||'<div class="sub">Keine Einträge</div>';
-const k=kpi();return`<div class="card"><h3>Aktiva · ${f(k.A)}</h3>${g('a')}</div><div class="card"><h3>Passiva · ${f(k.L)}</h3>${g('p')}</div>`}
+const k=kpi();return`<button class="btn" style="margin:0 0 12px" onclick="edit=null;tab='form';draw()">+ Neue Position</button><div class="card"><h3>Aktiva · ${f(k.A)}</h3>${g('a')}</div><div class="card"><h3>Passiva · ${f(k.L)}</h3>${g('p')}</div>`}
 function alloc(){const a=P().filter(p=>p.typ=='a'),by={},li={};a.forEach(p=>{by[p.klasse]=(by[p.klasse]||0)+ +p.wert;li[p.liq]=(li[p.liq]||0)+ +p.wert});
 const T=a.reduce((s,p)=>s+ +p.wert,0);if(!T)return'<div class="card sub">Noch keine Aktiva.</div>';const it=Object.entries(by).sort((x,y)=>y[1]-x[1]);
 return`<div class="card">${donut(it)}${it.map(([n,v])=>`<div class="row"><span><i class="dot" style="background:${COL[n]}"></i>${n}</span><span>${pc(v/T)} · ${f(v)}</span></div>`).join('')}</div>
@@ -182,6 +205,41 @@ body+=`<div class="card" style="margin-top:12px"><h3>Anschlussfinanzierung ab ${
 return`<div class="card"><h3>${p.name}</h3><div class="sub">Stand ${p.datum}: ${f(p.wert)} · Zins ${String(p.zins).replace('.',',')} % · Rate ${f(R)} p.a.</div>${c.s.ok?chart(c):''}</div>${body}
 <button class="btn s" onclick="cred=null;draw()">Zurück</button><button class="btn s" onclick="edit=${p.id};tab='form';draw()">Kredit bearbeiten</button>
 <div class="sub" style="margin-top:10px">Vereinfachung: monatliche Tilgung, Zinsen auf Restschuld, Rate gleichbleibend; Sondertilgungen und Gebühren nicht berücksichtigt.</div>`}
+/* Zukunft */
+function lineChart(ser){const W=300,H=130;const all=ser.flatMap(s=>s.v),mx=Math.max(...all),mn=Math.min(0,...all),n=ser[0].v.length;
+const X=i=>i/(n-1)*W,Y=v=>H-(v-mn)/((mx-mn)||1)*H;
+const z=mn<0?`<line x1="0" x2="${W}" y1="${Y(0)}" y2="${Y(0)}" stroke="#ccc"/>`:'';
+return`<svg viewBox="0 0 300 140" width="100%">${z}${ser.map(s=>`<polyline fill="none" stroke="${s.c}" stroke-width="2.5" points="${s.v.map((v,i)=>X(i)+','+Y(v)).join(' ')}"/>`).join('')}</svg>
+<div class="sub">${ser.map(s=>`<i class="dot" style="background:${s.c}"></i>${s.n}`).join(' &nbsp; ')}</div>`}
+function zuk(){const tb=`<div class="tabs">${[['sz','Szenarien'],['st','Stresstest'],['an','Annahmen']].map(([k,n])=>`<button class="${zsub==k?'on':''}" onclick="zsub='${k}';draw()">${n}</button>`).join('')}</div>`;
+const A=S.ann,L=P();
+if(!L.length)return tb+'<div class="card sub">Noch keine Daten.</div>';
+if(zsub=='sz'){const R=SC.map(([n,m,c])=>({n,c,...project(m,L)}));const Y=A.years;
+const yrs=[...new Set([5,10,20,Y].filter(y=>y<=Y&&y>0))].sort((a,b)=>a-b);
+return tb+`<div class="card"><h3>Nettovermögen real (Kaufkraft heute)</h3>${lineChart(R.map(r=>({n:r.n,c:r.c,v:r.real})))}</div>
+<div class="card"><table><tr><th>Jahr</th>${R.map(r=>`<th>${r.n}</th>`).join('')}</tr>
+<tr><td>Heute</td>${R.map(r=>`<td>${f(r.real[0])}</td>`).join('')}</tr>
+${yrs.map(y=>`<tr><td>+${y} J.</td>${R.map(r=>`<td>${f(r.real[y])}</td>`).join('')}</tr>`).join('')}</table>
+<div class="sub" style="margin-top:8px">Real = nominal ÷ (1+${(A.infl*100).toFixed(1).replace('.',',')} % Inflation)^Jahre. Szenarien verschieben die Rendite risikobehafteter Klassen (Aktien, ETFs, Immobilien, Krypto, Gold) um ±2 Prozentpunkte. Kredite laufen nach ihrem Tilgungsplan; ohne Sollzins/Rate bleibt der Betrag konstant. Ohne Steuern, Kosten, Renten/Pensionen.</div></div>`}
+if(zsub=='st'){const r=stress(stn,L),sh=STR[stn],d=r.na-r.nb;
+const zs=L.filter(p=>p.typ=='p').map(p=>({p,c:ci(p)})).filter(x=>x.c.has&&x.c.s.ok&&x.c.mb!=null&&x.c.mb>=0&&x.c.mb<x.c.s.n).map(x=>({n:x.p.name,m:pmtFor(x.c.s.rest[x.c.mb],+x.p.zins+3,x.c.s.n-x.c.mb)-(+x.p.rate)}));
+return tb+`<div class="tabs" style="flex-wrap:wrap">${Object.keys(STR).map(k=>`<button style="flex:1 1 45%" class="${stn==k?'on':''}" onclick="stn='${k}';draw()">${k}</button>`).join('')}</div>
+<div class="card"><div class="sub">Nettovermögen nach Schock (sofort, ohne Erholung)</div><div class="big">${f(r.na)}</div>
+<div class="${d<0?'neg':'pos'}">${d<0?'−':'+'}${f(Math.abs(d))} (${pc(r.nb?d/Math.abs(r.nb):0)}) gegenüber heute ${f(r.nb)}</div></div>
+<div class="grid"><div class="k"><span class="sub">Verschuldung vorher → nachher</span><b style="font-size:16px">${pc(r.ltvB)} → ${pc(r.ltvA)}</b></div><div class="k"><span class="sub">Sofort verfügbar</span><b style="font-size:16px">${f(r.liqB)} → ${f(r.liqA)}</b></div></div>
+<div class="card" style="margin-top:12px"><h3>Wirkung je Klasse</h3><table><tr><th>Klasse</th><th>Schock</th><th>Δ €</th></tr>
+${Object.entries(r.rows).filter(([k])=>sh[k]).map(([k,v])=>`<tr><td>${k}</td><td>${pc(sh[k])}</td><td class="${v.a<v.b?'neg':'pos'}">${f(v.a-v.b)}</td></tr>`).join('')}</table>
+<div class="sub" style="margin-top:8px">Schockannahmen sind illustrativ, keine Prognose. Nicht betroffene Klassen bleiben unverändert.</div></div>
+<div class="card"><h3>Zinsschock: Anschluss +3 Prozentpunkte</h3>${zs.length?zs.map(x=>`<div class="row"><span>${x.n}</span><b class="neg">+${f(x.m)} p.a. Rate</b></div>`).join('')+'<div class="sub">Mehr-Rate bei gleichem Tilgungsende ab Ende der Zinsbindung.</div>':'<div class="sub">Keine Kredite mit Zinsbindungsende vor Tilgung (oder Zins/Rate/Bindung fehlen).</div>'}</div>`}
+const inp=(id,l,v,st='0.1')=>`<div><label>${l}</label><input id="${id}" type="number" inputmode="decimal" step="${st}" value="${v}"></div>`;
+return tb+`<div class="card"><h3>Allgemein</h3><div class="two">${inp('a_infl','Inflation % p.a.',(A.infl*100).toFixed(2))}${inp('a_years','Horizont (Jahre, 1–40)',A.years,'1')}
+${inp('a_spar','Sparrate € p.a.',A.spar,'100')}${inp('a_rs','Rendite Sparpot % p.a.',(A.rs*100).toFixed(2))}${inp('a_auf','Zins-Aufschlag nach Zinsbindung (pp)',A.auf,'0.1')}</div></div>
+<div class="card"><h3>Erwartete Rendite nominal % p.a.</h3><div class="two">${KL.filter(k=>k!='Hypothek').map(k=>inp('r_'+k,k,((A.ret[k]!=null?A.ret[k]:.02)*100).toFixed(2))).join('')}</div>
+<button class="btn" onclick="setAnn()">Annahmen speichern</button><button class="btn s" onclick="if(confirm('Auf Standardwerte zurücksetzen?')){S.ann=defAnn();save();draw()}">Standard</button></div>`}
+function setAnn(){const g=id=>parseFloat(document.getElementById(id).value.replace(',','.'));const A=S.ann;
+const y=Math.round(g('a_years'));if(!(y>=1&&y<=40))return alert('Horizont 1–40 Jahre');
+A.infl=g('a_infl')/100;A.years=y;A.spar=g('a_spar')||0;A.rs=g('a_rs')/100;A.auf=g('a_auf')||0;
+KL.filter(k=>k!='Hypothek').forEach(k=>{const v=g('r_'+k);if(!isNaN(v))A.ret[k]=v/100});save();alert('Gespeichert');draw()}
 function form(){const p=S.pos.find(x=>x.id==edit)||{id:0,typ:'a',name:'',klasse:'Aktien',owner:own=='Alle'?'Gemeinsam':own,liq:'sofort',wert:'',datum:new Date().toISOString().slice(0,10),zins:'',rate:'',bindung:'',notiz:''};
 const o=(a,v)=>a.map(x=>`<option ${x==v?'selected':''}>${x}</option>`).join('');
 return`<div class="card"><h3>${p.id?'Position bearbeiten':'Neue Position'}</h3>
@@ -211,9 +269,10 @@ function dat(){return`<div class="card"><h3>Sicherheit</h3><div class="sub">Date
 <button class="btn s" onclick="ex(true)">Klartext-Export (Vorsicht)</button>
 <button class="btn d" onclick="wipe()">Alle Daten löschen</button></div>
 <div class="card"><h3>Modul Ansprüche</h3><div class="sub">Renten und Pensionen: noch nicht aktiv (Erweiterung vorgesehen).</div></div>`}
-const T={home:['Start',home],bil:['Bilanz',bil],alloc:['Struktur',alloc],kred:['Kredit',kred],form:['Neu',form],dat:['Daten',dat]};
+const T={home:['Start',home],bil:['Bilanz',bil],alloc:['Struktur',alloc],kred:['Kredit',kred],zuk:['Zukunft',zuk],dat:['Daten',dat],form:['Neu',form]};
+const NAV=['home','bil','alloc','kred','zuk','dat'];
 function draw(){if(!S)return;document.getElementById('own').innerHTML=OW.map(o=>`<button class="${o==own?'on':''}" onclick="own='${o}';cred=null;draw()">${o}</button>`).join('');
-document.getElementById('nav').innerHTML=Object.keys(T).map(k=>`<button class="${tab==k?'on':''}" onclick="${k=='form'?'edit=null;':''}${k=='kred'?'cred=null;':''}tab='${k}';draw()">${T[k][0]}</button>`).join('');
+document.getElementById('nav').innerHTML=NAV.map(k=>`<button class="${tab==k||(tab=='form'&&k=='bil')?'on':''}" onclick="${k=='kred'?'cred=null;':''}tab='${k}';draw()">${T[k][0]}</button>`).join('');
 document.getElementById('v').innerHTML=T[tab][1]();window.scrollTo(0,0)}
 async function boot(){if(!window.crypto||!crypto.subtle||!window.indexedDB){document.body.classList.add('locked');document.getElementById('lock').innerHTML='<div class="card" style="margin:0 14px">Sicherer Speicher nicht verfügbar. Bitte die Seite über HTTPS öffnen.</div>';return}
 try{META=(await idbGet('meta'))||null}catch(e){META=null}

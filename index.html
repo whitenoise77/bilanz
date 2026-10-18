@@ -101,6 +101,8 @@ const P=()=>S.pos.filter(p=>own=='Alle'||p.owner==own);
 const md=(a,b)=>(b.getFullYear()-a.getFullYear())*12+b.getMonth()-a.getMonth();
 const addM=(d,n)=>new Date(d.getFullYear(),d.getMonth()+Math.round(n),1);
 const fm=d=>String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();
+const eur=v=>{const a=Math.abs(v),s=v<0?'−':'';return a<1?'0 €':a>=1e6?s+(a/1e6).toFixed(a>=1e7?0:1).replace('.',',')+' Mio. €':s+Math.round(a/1000)+' Tsd. €'};
+function niceStep(range,target){const raw=range/target,e=Math.pow(10,Math.floor(Math.log10(raw))),m=raw/e;return(m<=1?1:m<=2?2:m<=5?5:10)*e}
 function sim(R0,z,rateY,max=720){const i=z/1200,p=rateY/12;if(!(R0>0))return{ok:true,n:0,rest:[0],tot:0};
 if(!(p>R0*i))return{ok:false,rest:[R0],tot:0};let R=R0,rest=[R0],tot=0;
 for(let m=1;m<=max;m++){const it=R*i;tot+=it;R=R+it-p;if(R<=0.5){rest.push(0);return{ok:true,n:m,rest,tot}}rest.push(R)}
@@ -187,7 +189,6 @@ ${ip.length?`<div class="card"><h3>Passiva nach Klasse</h3>${ip.map(([n,v])=>`<d
 <div class="row tot"><span>Nettovermögen</span><span>${f(T-TP)}</span></div></div>`}
 function chart(c){const r=c.s.rest,n=r.length,mx=r[0]||1,VW=360,VH=190,ML=54,MR=44,MT=14,MB=34,pw=VW-ML-MR,ph=VH-MT-MB;
 const X=m=>ML+m/(n-1)*pw,Y=v=>MT+ph-v/mx*ph;
-const eur=v=>v<=0?'0 €':(v>=1e6?(v/1e6).toFixed(2).replace('.',',')+' Mio. €':Math.round(v/1000)+' Tsd. €');
 let g='';[1,.75,.5,.25,0].forEach(l=>{const y=Y(mx*l);
 g+=`<line x1="${ML}" x2="${ML+pw}" y1="${y}" y2="${y}" stroke="${l==0?'#1a9b6c':'#e3e7ec'}" stroke-width="${l==0?2:1}"/>
 <text x="${ML-5}" y="${y+3}" text-anchor="end" font-size="9" fill="${l==0?'#1a9b6c':'#6b7785'}" ${l==0?'font-weight="700"':''}>${eur(mx*l)}</text>
@@ -228,18 +229,24 @@ body+=`<div class="card" style="margin-top:12px"><h3>Anschlussfinanzierung ab ${
 return`<div class="card"><h3>${p.name}</h3><div class="sub">Stand ${p.datum}: ${f(p.wert)} · Zins ${String(p.zins).replace('.',',')} % · Rate ${f(R)} p.a.</div>${c.s.ok?chart(c):''}</div>${body}
 <button class="btn s" onclick="cred=null;draw()">Zurück</button><button class="btn s" onclick="edit=${p.id};tab='form';draw()">Kredit bearbeiten</button>
 <div class="sub" style="margin-top:10px">Vereinfachung: monatliche Tilgung, Zinsen auf Restschuld, Rate gleichbleibend; Sondertilgungen und Gebühren nicht berücksichtigt.</div>`}
-function lineChart(ser){const W=300,H=130;const all=ser.flatMap(s=>s.v),mx=Math.max(...all),mn=Math.min(0,...all),n=ser[0].v.length;
-const X=i=>i/(n-1)*W,Y=v=>H-(v-mn)/((mx-mn)||1)*H;
-const z=mn<0?`<line x1="0" x2="${W}" y1="${Y(0)}" y2="${Y(0)}" stroke="#ccc"/>`:'';
-return`<svg viewBox="0 0 300 140" width="100%">${z}${ser.map(s=>`<polyline fill="none" stroke="${s.c}" stroke-width="2.5" points="${s.v.map((v,i)=>X(i)+','+Y(v)).join(' ')}"/>`).join('')}</svg>
-<div class="sub">${ser.map(s=>`<i class="dot" style="background:${s.c}"></i>${s.n}`).join(' &nbsp; ')}</div>`}
+function lineChart(ser,Y){const VW=360,VH=200,ML=56,MR=14,MT=12,MB=26,pw=VW-ML-MR,ph=VH-MT-MB;
+const all=ser.flatMap(s=>s.v),mn0=Math.min(0,...all),mx0=Math.max(...all),st=niceStep((mx0-mn0)||1,5);
+const mn=Math.floor(mn0/st)*st,mx=Math.ceil(mx0/st)*st,n=ser[0].v.length;
+const X=i=>ML+i/(n-1)*pw,Yy=v=>MT+ph-(v-mn)/((mx-mn)||1)*ph;let g='';
+for(let v=mn;v<=mx+st/2;v+=st){const y=Yy(v),z=Math.abs(v)<st/1000;
+g+=`<line x1="${ML}" x2="${ML+pw}" y1="${y}" y2="${y}" stroke="${z?'#6b7785':'#e3e7ec'}" stroke-width="${z?1.5:1}"/><text x="${ML-5}" y="${y+3}" text-anchor="end" font-size="9" fill="#6b7785">${eur(v)}</text>`}
+const sx=Y>30?10:Y>15?5:Y>8?2:1,y0=new Date().getFullYear();let xt='';
+for(let t=0;t<=Y;t+=sx)xt+=`<line x1="${X(t)}" x2="${X(t)}" y1="${MT}" y2="${MT+ph}" stroke="#eef0f3"/><line x1="${X(t)}" x2="${X(t)}" y1="${MT+ph}" y2="${MT+ph+4}" stroke="#6b7785"/><text x="${X(t)}" y="${MT+ph+16}" text-anchor="middle" font-size="9" fill="#6b7785">${y0+t}</text>`;
+return`<svg viewBox="0 0 ${VW} ${VH}" width="100%">${g}${xt}${ser.map(s=>`<polyline fill="none" stroke="${s.c}" stroke-width="2.5" points="${s.v.map((v,i)=>X(i)+','+Yy(v)).join(' ')}"/>`).join('')}</svg>
+<div class="sub">${ser.map(s=>`<i class="dot" style="background:${s.c}"></i>${s.n}`).join(' &nbsp; ')}</div>
+<div class="sub">x-Achse: Kalenderjahr · y-Achse: Nettovermögen in heutiger Kaufkraft</div>`}
 const realR=(r,i)=>((1+r)/(1+i)-1);
 function zuk(){const tb=`<div class="tabs">${[['sz','Szenarien'],['st','Stresstest'],['an','Annahmen']].map(([k,n])=>`<button class="${zsub==k?'on':''}" onclick="zsub='${k}';draw()">${n}</button>`).join('')}</div>`;
 const A=S.ann,L=P();
 if(!L.length)return tb+'<div class="card sub">Noch keine Daten.</div>';
 if(zsub=='sz'){const R=SC.map(([n,m,c])=>({n,c,...project(m,L)}));const Y=A.years;
 const yrs=[...new Set([5,10,20,Y].filter(y=>y<=Y&&y>0))].sort((a,b)=>a-b);
-return tb+`<div class="card"><h3>Nettovermögen real (Kaufkraft heute)</h3>${lineChart(R.map(r=>({n:r.n,c:r.c,v:r.real})))}</div>
+return tb+`<div class="card"><h3>Nettovermögen real (Kaufkraft heute)</h3>${lineChart(R.map(r=>({n:r.n,c:r.c,v:r.real})),Y)}</div>
 <div class="card"><table><tr><th>Jahr</th>${R.map(r=>`<th>${r.n}</th>`).join('')}</tr>
 <tr><td>Heute</td>${R.map(r=>`<td>${f(r.real[0])}</td>`).join('')}</tr>
 ${yrs.map(y=>`<tr><td>+${y} J.</td>${R.map(r=>`<td>${f(r.real[y])}</td>`).join('')}</tr>`).join('')}</table>

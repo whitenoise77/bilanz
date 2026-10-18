@@ -12,14 +12,15 @@ main{padding:12px}.card{background:var(--c);border-radius:14px;padding:14px;marg
 .big{font-size:32px;font-weight:700}.sub{color:var(--m);font-size:13px}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.k{background:var(--c);border-radius:12px;padding:12px;box-shadow:0 1px 3px #0001}
 .k b{display:block;font-size:20px;margin-top:4px}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
-.row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid #eef0f3}
+.row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid #eef0f3;gap:8px}
 .row:last-child{border:0}.row small{color:var(--m);display:block}.neg{color:var(--r)}
 nav{position:fixed;bottom:0;left:0;right:0;background:#fff;display:flex;border-top:1px solid #e2e6eb;padding-bottom:env(safe-area-inset-bottom)}
-nav button{flex:1;border:0;background:none;padding:12px 4px;font-size:12px;color:var(--m)}nav button.on{color:var(--p);font-weight:700}
+nav button{flex:1;border:0;background:none;padding:12px 2px;font-size:11px;color:var(--m)}nav button.on{color:var(--p);font-weight:700}
 label{display:block;font-size:12px;color:var(--m);margin:10px 0 3px}input,select,textarea{width:100%;padding:11px;border:1px solid #d5dae1;border-radius:10px;font-size:16px;background:#fff}
 .btn{width:100%;padding:13px;border:0;border-radius:12px;background:var(--p);color:#fff;font-size:16px;margin-top:14px}.btn.s{background:#e8ebf0;color:var(--p)}.btn.d{background:#fbe9e7;color:var(--r)}
 h3{margin:4px 0 8px;font-size:15px}.bar{height:8px;border-radius:4px;background:#e8ebf0;overflow:hidden}.bar i{display:block;height:100%}
 .warn{font-size:12px;padding:3px 8px;border-radius:10px;background:#fdf3dc;color:#8a5d00}
+table{width:100%;border-collapse:collapse;font-size:13px}th{color:var(--m);font-weight:500;text-align:right;padding:6px 2px}td{text-align:right;padding:8px 2px;border-top:1px solid #eef0f3}th:first-child,td:first-child{text-align:left}
 </style></head><body>
 <header><h1>Vermögensbilanz</h1><div class="seg" id="own"></div></header>
 <main id="v"></main>
@@ -30,11 +31,24 @@ const COL={Immobilien:'#0f2a43',Aktien:'#1a9b6c',ETFs:'#38b2a0',Anleihen:'#6c8eb
 const OW=['Alle','Sascha','Janina','Gemeinsam'],LQ=['sofort','mittel','gebunden'];
 let S;try{S=JSON.parse(localStorage.getItem('vb')||'null')}catch(e){S=null}
 if(!S||!S.pos)S={v:1,pos:[],hist:[]};
-let tab='home',own='Alle',edit=null;
+let tab='home',own='Alle',edit=null,cred=null,dz=0;
 const save=()=>localStorage.setItem('vb',JSON.stringify(S));
 const f=n=>new Intl.NumberFormat('de-DE',{maximumFractionDigits:0}).format(n)+' €';
 const pc=n=>(n*100).toFixed(1).replace('.',',')+' %';
 const P=()=>S.pos.filter(p=>own=='Alle'||p.owner==own);
+const md=(a,b)=>(b.getFullYear()-a.getFullYear())*12+b.getMonth()-a.getMonth();
+const addM=(d,n)=>{const x=new Date(d.getFullYear(),d.getMonth()+Math.round(n),1);return x};
+const fm=d=>String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();
+function sim(R0,z,rateY,max=720){const i=z/1200,p=rateY/12;if(!(R0>0))return{ok:true,n:0,rest:[0],tot:0};
+if(!(p>R0*i))return{ok:false,rest:[R0],tot:0};let R=R0,rest=[R0],tot=0;
+for(let m=1;m<=max;m++){const it=R*i;tot+=it;R=R+it-p;if(R<=0){rest.push(0);return{ok:true,n:m,rest,tot}}rest.push(R)}
+return{ok:false,rest,tot}}
+function pmtFor(R,z,n){const i=z/1200;if(n<=0)return R*12;return(i==0?R/n:R*i/(1-Math.pow(1+i,-n)))*12}
+function ci(p){const has=p.zins!==''&&p.zins!=null&&+p.rate>0;if(!has)return{has:false};
+const st=new Date(p.datum),s=sim(+p.wert,+p.zins,+p.rate);const now=new Date();
+const mh=Math.max(0,md(st,now));const heute=s.ok?s.rest[Math.min(mh,s.rest.length-1)]:+p.wert;
+let mb=null;if(p.bindung){mb=md(st,new Date(p.bindung))}
+return{has:true,s,st,mh,heute,mb,frei:s.ok?addM(st,s.n):null,bd:p.bindung?new Date(p.bindung):null}}
 function kpi(){const a=P().filter(p=>p.typ=='a'),l=P().filter(p=>p.typ=='p');
 const A=a.reduce((s,p)=>s+ +p.wert,0),L=l.reduce((s,p)=>s+ +p.wert,0);
 const imm=a.filter(p=>p.klasse=='Immobilien').reduce((s,p)=>s+ +p.wert,0);
@@ -51,6 +65,21 @@ function spark(){const h=S.hist;if(h.length<2)return'<div class="sub">Verlauf en
 const mx=Math.max(...h.map(x=>x.N)),mn=Math.min(...h.map(x=>x.N)),w=300,hh=70;
 const pts=h.map((x,i)=>`${i*w/(h.length-1)},${hh-(x.N-mn)/((mx-mn)||1)*hh}`).join(' ');
 return`<svg viewBox="0 0 300 80" width="100%"><polyline points="${pts}" fill="none" stroke="#0f2a43" stroke-width="2.5"/></svg>`}
+function bindAmpel(c){if(!c.bd)return{col:'#a0a8b2',txt:'Zinsbindung fehlt'};const mo=md(new Date(),c.bd);
+if(mo<0)return{col:'var(--r)',txt:'Zinsbindung abgelaufen'};
+return{col:mo<=24?'var(--r)':mo<=60?'var(--o)':'var(--g)',txt:'Zinsbindung bis '+fm(c.bd)+' ('+(mo/12).toFixed(1).replace('.',',')+' J.)'}}
+function credCard(){const l=P().filter(p=>p.typ=='p');if(!l.length)return'';
+const info=l.map(p=>({p,c:ci(p)}));const ok=info.filter(x=>x.c.has);
+const sum=info.reduce((s,x)=>s+(x.c.has?x.c.heute:+x.p.wert),0);
+const dates=ok.filter(x=>x.c.bd).sort((a,b)=>a.c.bd-b.c.bd);
+const frei=ok.filter(x=>x.c.frei).map(x=>x.c.frei);const last=frei.length==ok.length&&ok.length?new Date(Math.max(...frei)):null;
+const miss=info.length-ok.length;
+const nb=dates[0]?bindAmpel(dates[0].c):null;
+return`<div class="card" style="margin-top:12px" onclick="tab='kred';draw()"><h3>Kredite</h3>
+<div class="row"><span>Restschuld heute (geschätzt)</span><b>${f(sum)}</b></div>
+${nb?`<div class="row"><span><i class="dot" style="background:${nb.col}"></i>Nächste Zinsbindung</span><span>${dates[0].p.name}: ${nb.txt}</span></div>`:''}
+${last?`<div class="row"><span>Schuldenfrei (alle Kredite)</span><b>${fm(last)}</b></div>`:''}
+${miss?`<div class="sub">${miss} Kredit(e) ohne Zins/Rate – bitte ergänzen.</div>`:''}</div>`}
 function home(){if(!S.pos.length)return`<div class="card"><h3>Willkommen</h3><div class="sub">Noch keine Daten. Lege Positionen über „Neu" an oder importiere ein Backup unter „Daten".</div>
 <button class="btn" onclick="edit=null;tab='form';draw()">Erste Position anlegen</button><button class="btn s" onclick="tab='dat';draw()">Backup importieren</button></div>`;
 const k=kpi();const ampel=(v,g,y)=>v<=g?'var(--g)':v<=y?'var(--o)':'var(--r)';
@@ -60,7 +89,8 @@ return`<div class="card"><div class="sub">Nettovermögen · ${own} · ohne Rente
 <div class="k"><span class="sub"><i class="dot" style="background:${ampel(k.imm,.4,.6)}"></i>Immobilienanteil</span><b>${pc(k.imm)}</b></div>
 <div class="k"><span class="sub">Sofort verfügbar</span><b>${f(k.liq)}</b></div>
 <div class="k"><span class="sub">Kreditraten p.a.</span><b>${f(k.rate)}</b></div></div>
-${k.old?`<div class="card" style="margin-top:12px"><span class="warn">${k.old} Position(en) älter als 90 Tage</span></div>`:''}
+${credCard()}
+${k.old?`<div class="card"><span class="warn">${k.old} Position(en) älter als 90 Tage</span></div>`:''}
 <button class="btn s" onclick="snap();alert('Monatsstand gespeichert')">Monatsstand speichern</button>`}
 function bil(){const g=t=>P().filter(p=>p.typ==t).sort((a,b)=>b.wert-a.wert).map(p=>`<div class="row" onclick="edit=${p.id};tab='form';draw()"><div>${p.name}<small>${p.klasse} · ${p.owner} · ${p.liq} · ${p.datum}</small></div><b>${t=='p'?'−':''}${f(p.wert)}</b></div>`).join('')||'<div class="sub">Keine Einträge</div>';
 const k=kpi();return`<div class="card"><h3>Aktiva · ${f(k.A)}</h3>${g('a')}</div><div class="card"><h3>Passiva · ${f(k.L)}</h3>${g('p')}</div>`}
@@ -68,16 +98,47 @@ function alloc(){const a=P().filter(p=>p.typ=='a'),by={},li={};a.forEach(p=>{by[
 const T=a.reduce((s,p)=>s+ +p.wert,0);if(!T)return'<div class="card sub">Noch keine Aktiva.</div>';const it=Object.entries(by).sort((x,y)=>y[1]-x[1]);
 return`<div class="card">${donut(it)}${it.map(([n,v])=>`<div class="row"><span><i class="dot" style="background:${COL[n]}"></i>${n}</span><span>${pc(v/T)} · ${f(v)}</span></div>`).join('')}</div>
 <div class="card"><h3>Nach Liquidität</h3>${LQ.map(q=>`<div class="row"><span>${q}</span><span>${pc((li[q]||0)/T)}</span></div><div class="bar"><i style="width:${(li[q]||0)/T*100}%;background:var(--p)"></i></div>`).join('')}</div>`}
+function chart(c){const r=c.s.rest,n=r.length,W=300,H=110,mx=r[0]||1;
+const step=Math.max(1,Math.floor(n/60));const pts=[];for(let m=0;m<n;m+=step)pts.push(`${m/(n-1)*W},${H-r[m]/mx*H}`);pts.push(`${W},${H}`);
+let mk='';if(c.mb!=null&&c.mb>0&&c.mb<n)mk=`<line x1="${c.mb/(n-1)*W}" x2="${c.mb/(n-1)*W}" y1="0" y2="${H}" stroke="#e0a030" stroke-dasharray="4 3" stroke-width="2"/>`;
+return`<svg viewBox="0 0 300 120" width="100%"><polyline points="${pts.join(' ')}" fill="none" stroke="#7a3b3b" stroke-width="2.5"/>${mk}</svg><div class="sub">Restschuld bis zur Tilgung${mk?' · orange: Ende der Zinsbindung':''}</div>`}
+function kred(){const l=P().filter(p=>p.typ=='p');
+if(!l.length)return'<div class="card sub">Keine Kredite erfasst. Lege ein Passivum mit Zins, Rate und Zinsbindung an.</div>';
+if(cred){const p=S.pos.find(x=>x.id==cred);if(p)return kdetail(p)}
+return l.map(p=>{const c=ci(p);if(!c.has)return`<div class="card" onclick="edit=${p.id};tab='form';draw()"><h3>${p.name}</h3><div class="sub">Sollzins und Rate fehlen. Tippen zum Ergänzen.</div></div>`;
+const b=bindAmpel(c);return`<div class="card" onclick="cred=${p.id};dz=0;draw()"><h3>${p.name}</h3>
+<div class="row"><span>Restschuld heute (geschätzt)</span><b>${f(c.heute)}</b></div>
+<div class="row"><span>Sollzins · Rate p.a.</span><span>${String(p.zins).replace('.',',')} % · ${f(p.rate)}</span></div>
+<div class="row"><span><i class="dot" style="background:${b.col}"></i>${b.txt}</span></div>
+<div class="row"><span>Schuldenfrei</span><b>${c.s.ok?fm(c.frei):'Rate deckt Zins nicht'}</b></div></div>`}).join('')}
+function kdetail(p){const c=ci(p);if(!c.has){cred=null;return kred()}
+const z=+p.zins,R=+p.rate;let body='';
+if(!c.s.ok)body='<div class="warn">Rate deckt die Zinsen nicht – Kredit tilgt nicht.</div>';
+else{body=`<div class="grid"><div class="k"><span class="sub">Schuldenfrei</span><b>${fm(c.frei)}</b></div><div class="k"><span class="sub">Restlaufzeit ab Stand</span><b>${(c.s.n/12).toFixed(1).replace('.',',')} J.</b></div>
+<div class="k"><span class="sub">Zinsen bis Ende</span><b>${f(c.s.tot)}</b></div><div class="k"><span class="sub">Restschuld heute</span><b>${f(c.heute)}</b></div></div>`;
+if(c.mb==null)body+='<div class="card" style="margin-top:12px"><span class="warn">Ende der Zinsbindung fehlt</span></div>';
+else if(c.mb>=c.s.n)body+='<div class="card" style="margin-top:12px"><div class="sub">Die Zinsbindung reicht bis zur vollständigen Tilgung – kein Anschlussrisiko.</div></div>';
+else if(c.mb<0)body+='<div class="card" style="margin-top:12px"><span class="warn">Zinsbindung laut Eingabe abgelaufen – Daten prüfen</span></div>';
+else{const Rb=c.s.rest[c.mb],nrem=c.s.n-c.mb;
+const rows=[0,1,2,3].map(d=>{const z2=z+d,s2=sim(Rb,z2,R),need=pmtFor(Rb,z2,nrem);
+return`<tr style="${d==dz?'background:#f3f5f8':''}"><td>${String(z2.toFixed(2)).replace('.',',')} %</td><td>${s2.ok?fm(addM(c.bd,s2.n)):'–'}</td><td>${s2.ok?f(s2.tot):'–'}</td><td>${need>R?'+':''}${f(need-R)}</td></tr>`}).join('');
+body+=`<div class="card" style="margin-top:12px"><h3>Anschlussfinanzierung ab ${fm(c.bd)}</h3>
+<div class="sub">Restschuld dann (geschätzt): <b>${f(Rb)}</b>. Annahme: Rate bleibt gleich bzw. Rate steigt, damit das Ende gleich bleibt.</div>
+<table><tr><th>Zins neu</th><th>Schuldenfrei</th><th>Zinsen ab dann</th><th>Mehr-Rate p.a.</th></tr>${rows}</table>
+<div class="sub" style="margin-top:8px">Zeilen: gleicher Zins, +1, +2, +3 Prozentpunkte. „Mehr-Rate" gilt bei unverändertem Tilgungsende.</div></div>`}}
+return`<div class="card"><h3>${p.name}</h3><div class="sub">Stand ${p.datum}: ${f(p.wert)} · Zins ${String(p.zins).replace('.',',')} % · Rate ${f(R)} p.a.</div>${c.s.ok?chart(c):''}</div>${body}
+<button class="btn s" onclick="cred=null;draw()">Zurück</button><button class="btn s" onclick="edit=${p.id};tab='form';draw()">Kredit bearbeiten</button>
+<div class="sub" style="margin-top:10px">Vereinfachung: monatliche Tilgung, Zinsen auf Restschuld, Rate gleichbleibend; Sondertilgungen und Gebühren nicht berücksichtigt.</div>`}
 function form(){const p=S.pos.find(x=>x.id==edit)||{id:0,typ:'a',name:'',klasse:'Aktien',owner:own=='Alle'?'Gemeinsam':own,liq:'sofort',wert:'',datum:new Date().toISOString().slice(0,10),zins:'',rate:'',bindung:'',notiz:''};
 const o=(a,v)=>a.map(x=>`<option ${x==v?'selected':''}>${x}</option>`).join('');
 return`<div class="card"><h3>${p.id?'Position bearbeiten':'Neue Position'}</h3>
 <label>Typ</label><select id="typ"><option value="a" ${p.typ=='a'?'selected':''}>Aktivum</option><option value="p" ${p.typ=='p'?'selected':''}>Passivum</option></select>
 <label>Name</label><input id="name" value="${p.name}"><label>Assetklasse</label><select id="klasse">${o(KL,p.klasse)}</select>
 <label>Eigentümer</label><select id="owner">${o(OW.slice(1),p.owner)}</select><label>Liquidität</label><select id="liq">${o(LQ,p.liq)}</select>
-<label>Aktueller Wert (€, positiv eingeben)</label><input id="wert" type="number" inputmode="decimal" value="${p.wert}">
-<label>Bewertungsdatum</label><input id="datum" type="date" value="${p.datum}">
-<label>Nur Kredit: Sollzins (%)</label><input id="zins" type="number" inputmode="decimal" step="0.01" value="${p.zins}">
-<label>Nur Kredit: Rate p.a. (€)</label><input id="rate" type="number" inputmode="decimal" value="${p.rate}">
+<label>Aktueller Wert / Restschuld (€, positiv eingeben)</label><input id="wert" type="number" inputmode="decimal" value="${p.wert}">
+<label>Bewertungsdatum (bei Krediten: Datum der Restschuld)</label><input id="datum" type="date" value="${p.datum}">
+<label>Nur Kredit: Sollzins (% p.a.)</label><input id="zins" type="number" inputmode="decimal" step="0.01" value="${p.zins}">
+<label>Nur Kredit: Rate p.a. (Zins + Tilgung, €)</label><input id="rate" type="number" inputmode="decimal" value="${p.rate}">
 <label>Nur Kredit: Ende Zinsbindung</label><input id="bindung" type="date" value="${p.bindung}">
 <label>Notiz</label><textarea id="notiz" rows="2">${p.notiz}</textarea>
 <button class="btn" onclick="sv(${p.id})">Speichern</button>${p.id?`<button class="btn d" onclick="del(${p.id})">Löschen</button>`:''}<button class="btn s" onclick="tab='bil';draw()">Abbrechen</button></div>`}
@@ -94,11 +155,11 @@ function dat(){return`<div class="card"><h3>Daten</h3><div class="sub">Alles lie
 <div class="card"><h3>Modul Ansprüche</h3><div class="sub">Renten und Pensionen: noch nicht aktiv (Erweiterung vorgesehen).</div></div>`}
 function ex(){const b=new Blob([JSON.stringify(S,null,1)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='vermoegensbilanz_backup.json';a.click()}
 function im(e){const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!d.pos)throw 0;S=d;save();tab='home';draw()}catch(x){alert('Datei ungültig')}};r.readAsText(e.target.files[0])}
-const T={home:['Start',home],bil:['Bilanz',bil],alloc:['Struktur',alloc],form:['Neu',form],dat:['Daten',dat]};
-function draw(){document.getElementById('own').innerHTML=OW.map(o=>`<button class="${o==own?'on':''}" onclick="own='${o}';draw()">${o}</button>`).join('');
-document.getElementById('nav').innerHTML=['home','bil','alloc','form','dat'].map(k=>`<button class="${tab==k?'on':''}" onclick="${k=='form'?'edit=null;':''}tab='${k}';draw()">${T[k][0]}</button>`).join('');
+const T={home:['Start',home],bil:['Bilanz',bil],alloc:['Struktur',alloc],kred:['Kredit',kred],form:['Neu',form],dat:['Daten',dat]};
+function draw(){document.getElementById('own').innerHTML=OW.map(o=>`<button class="${o==own?'on':''}" onclick="own='${o}';cred=null;draw()">${o}</button>`).join('');
+document.getElementById('nav').innerHTML=Object.keys(T).map(k=>`<button class="${tab==k?'on':''}" onclick="${k=='form'?'edit=null;':''}${k=='kred'?'cred=null;':''}tab='${k}';draw()">${T[k][0]}</button>`).join('');
 document.getElementById('v').innerHTML=T[tab][1]();window.scrollTo(0,0)}
-draw();
+if(typeof document!=='undefined'&&document.getElementById('v')){draw();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
-if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
+if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();}
 </script></body></html>

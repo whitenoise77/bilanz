@@ -15,6 +15,7 @@ main{padding:12px}.card{background:var(--c);border-radius:14px;padding:14px;marg
 .k b{display:block;font-size:20px;margin-top:4px}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
 .row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid #eef0f3;gap:8px}
 .row:last-child{border:0}.row small{color:var(--m);display:block}.neg{color:var(--r)}.pos{color:var(--g)}
+.row.tot{border-top:2px solid var(--p);border-bottom:0;font-weight:700;margin-top:2px}
 nav{position:fixed;bottom:0;left:0;right:0;background:#fff;display:flex;border-top:1px solid #e2e6eb;padding-bottom:env(safe-area-inset-bottom)}
 nav button{flex:1;border:0;background:none;padding:12px 2px;font-size:11px;color:var(--m)}nav button.on{color:var(--p);font-weight:700}
 label{display:block;font-size:12px;color:var(--m);margin:10px 0 3px}input,select,textarea{width:100%;padding:11px;border:1px solid #d5dae1;border-radius:10px;font-size:16px;background:#fff}
@@ -90,6 +91,7 @@ const COL={Immobilien:'#0f2a43',Aktien:'#1a9b6c',ETFs:'#38b2a0',Anleihen:'#6c8eb
 const OW=['Alle','Sascha','Janina','Gemeinsam'],LQ=['sofort','mittel','gebunden'];
 const RISK=['Aktien','ETFs','Immobilien','Krypto','Gold'];
 const defAnn=()=>({infl:.02,years:30,spar:0,rs:.05,auf:0,ret:{Immobilien:.04,Aktien:.07,ETFs:.06,Anleihen:.03,Lebensversicherung:.035,Gold:.03,Tagesgeld:.015,Bargeld:0,Krypto:.1,Sonstiges:.02}});
+const VORSICHT={Immobilien:3.5,Aktien:6,ETFs:6,Anleihen:3.5,Lebensversicherung:3,Gold:2.5,Tagesgeld:1.5,Bargeld:0,Krypto:5,Sonstiges:2};
 const STR={'Aktiencrash':{Aktien:-.35,ETFs:-.30,Krypto:-.6,Gold:.1},'Immobilien −20 %':{Immobilien:-.2},'Stagflation':{Aktien:-.2,ETFs:-.2,Anleihen:-.1,Immobilien:-.1,Gold:.15},'Große Krise':{Aktien:-.4,ETFs:-.35,Krypto:-.7,Immobilien:-.25,Anleihen:-.05,Gold:.1,Lebensversicherung:-.05}};
 const SC=[['Basis',0,'#0f2a43'],['Optimistisch',.02,'#1a9b6c'],['Pessimistisch',-.02,'#c8453b']];
 let tab='home',own='Alle',edit=null,cred=null,dz=0,zsub='sz',stn='Aktiencrash';
@@ -109,7 +111,6 @@ const st=new Date(p.datum),s=sim(+p.wert,+p.zins,+p.rate);const now=new Date();
 const mh=Math.max(0,md(st,now));const heute=s.ok?s.rest[Math.min(mh,s.rest.length-1)]:+p.wert;
 let mb=null;if(p.bindung){mb=md(st,new Date(p.bindung))}
 return{has:true,s,st,mh,heute,mb,frei:s.ok?addM(st,s.n):null,bd:p.bindung?new Date(p.bindung):null}}
-/* Szenarien */
 function cpath(p,Y,dzA){const z=+p.zins,rate=+p.rate;if(!(p.zins!==''&&rate>0))return Array.from({length:Y+1},()=>+p.wert);
 const st=new Date(p.datum),mh=Math.max(0,md(st,new Date())),mb=p.bindung?md(st,new Date(p.bindung)):null;
 const total=mh+12*Y;let R=+p.wert;const arr=[R];
@@ -121,7 +122,7 @@ for(let t=0;t<=Y;t++){if(t>0)pot=pot*(1+A.rs+mod)+A.spar;
 let as=0;act.forEach(p=>{const r=(A.ret[p.klasse]!=null?A.ret[p.klasse]:.02)+(RISK.includes(p.klasse)?mod:0);as+=(+p.wert)*Math.pow(1+r,t)});
 let de=0;paths.forEach(a=>de+=a[t]);const n=as+pot-de;nom.push(n);real.push(n/Math.pow(1+A.infl,t))}
 return{real,nom}}
-function stress(name,list){const sh=STR[name],rows={};let before=0,after=0,liqB=0,liqA=0,A0=0,A1=0,L=0;
+function stress(name,list){const sh=STR[name],rows={};let A0=0,A1=0,L=0,liqB=0,liqA=0;
 list.forEach(p=>{const w=+p.wert;if(p.typ=='p'){L+=w;return}const s=sh[p.klasse]||0,w2=w*(1+s);A0+=w;A1+=w2;if(p.liq=='sofort'){liqB+=w;liqA+=w2}
 rows[p.klasse]=rows[p.klasse]||{b:0,a:0};rows[p.klasse].b+=w;rows[p.klasse].a+=w2});
 return{rows,nb:A0-L,na:A1-L,ltvB:A0?L/A0:0,ltvA:A1?L/A1:0,liqB,liqA}}
@@ -169,11 +170,21 @@ ${k.old?`<div class="card"><span class="warn">${k.old} Position(en) älter als 9
 <button class="btn" onclick="edit=null;tab='form';draw()">+ Neue Position</button>
 <button class="btn s" onclick="snap();alert('Monatsstand gespeichert')">Monatsstand speichern</button>`}
 function bil(){const g=t=>P().filter(p=>p.typ==t).sort((a,b)=>b.wert-a.wert).map(p=>`<div class="row" onclick="edit=${p.id};tab='form';draw()"><div>${p.name}<small>${p.klasse} · ${p.owner} · ${p.liq} · ${p.datum}</small></div><b>${t=='p'?'−':''}${f(p.wert)}</b></div>`).join('')||'<div class="sub">Keine Einträge</div>';
-const k=kpi();return`<button class="btn" style="margin:0 0 12px" onclick="edit=null;tab='form';draw()">+ Neue Position</button><div class="card"><h3>Aktiva · ${f(k.A)}</h3>${g('a')}</div><div class="card"><h3>Passiva · ${f(k.L)}</h3>${g('p')}</div>`}
-function alloc(){const a=P().filter(p=>p.typ=='a'),by={},li={};a.forEach(p=>{by[p.klasse]=(by[p.klasse]||0)+ +p.wert;li[p.liq]=(li[p.liq]||0)+ +p.wert});
-const T=a.reduce((s,p)=>s+ +p.wert,0);if(!T)return'<div class="card sub">Noch keine Aktiva.</div>';const it=Object.entries(by).sort((x,y)=>y[1]-x[1]);
-return`<div class="card">${donut(it)}${it.map(([n,v])=>`<div class="row"><span><i class="dot" style="background:${COL[n]}"></i>${n}</span><span>${pc(v/T)} · ${f(v)}</span></div>`).join('')}</div>
-<div class="card"><h3>Nach Liquidität</h3>${LQ.map(q=>`<div class="row"><span>${q}</span><span>${pc((li[q]||0)/T)}</span></div><div class="bar"><i style="width:${(li[q]||0)/T*100}%;background:var(--p)"></i></div>`).join('')}</div>`}
+const k=kpi();return`<button class="btn" style="margin:0 0 12px" onclick="edit=null;tab='form';draw()">+ Neue Position</button><div class="card"><h3>Aktiva · ${f(k.A)}</h3>${g('a')}</div><div class="card"><h3>Passiva · ${f(k.L)}</h3>${g('p')}</div>
+<div class="card"><div class="row tot"><span>Nettovermögen</span><span>${f(k.N)}</span></div></div>`}
+function alloc(){const L=P(),a=L.filter(p=>p.typ=='a'),pa=L.filter(p=>p.typ=='p'),by={},li={},pb={};
+a.forEach(p=>{by[p.klasse]=(by[p.klasse]||0)+ +p.wert;li[p.liq]=(li[p.liq]||0)+ +p.wert});pa.forEach(p=>{pb[p.klasse]=(pb[p.klasse]||0)+ +p.wert});
+const T=a.reduce((s,p)=>s+ +p.wert,0),TP=pa.reduce((s,p)=>s+ +p.wert,0);if(!T&&!TP)return'<div class="card sub">Noch keine Daten.</div>';
+const it=Object.entries(by).sort((x,y)=>y[1]-x[1]),ip=Object.entries(pb).sort((x,y)=>y[1]-x[1]);
+return`<div class="grid"><div class="k"><span class="sub">Summe Aktiva</span><b>${f(T)}</b></div><div class="k"><span class="sub">Summe Passiva</span><b class="neg">${f(TP)}</b></div></div>
+<div class="card" style="margin-top:12px"><h3>Aktiva nach Klasse</h3>${donut(it)}${it.map(([n,v])=>`<div class="row"><span><i class="dot" style="background:${COL[n]}"></i>${n}</span><span>${pc(v/T)} · ${f(v)}</span></div>`).join('')}
+<div class="row tot"><span>Summe Aktiva</span><span>100,0 % · ${f(T)}</span></div></div>
+${ip.length?`<div class="card"><h3>Passiva nach Klasse</h3>${ip.map(([n,v])=>`<div class="row"><span><i class="dot" style="background:${COL[n]||'#999'}"></i>${n}</span><span>${pc(TP?v/TP:0)} · ${f(v)}</span></div>`).join('')}
+<div class="row tot"><span>Summe Passiva</span><span>100,0 % · ${f(TP)}</span></div></div>`:''}
+<div class="card"><h3>Aktiva nach Liquidität</h3>${LQ.map(q=>`<div class="row"><span>${q}</span><span>${pc((li[q]||0)/(T||1))} · ${f(li[q]||0)}</span></div><div class="bar"><i style="width:${(li[q]||0)/(T||1)*100}%;background:var(--p)"></i></div>`).join('')}
+<div class="row tot"><span>Summe Aktiva</span><span>100,0 % · ${f(T)}</span></div></div>
+<div class="card"><div class="row"><span>Summe Aktiva</span><span>${f(T)}</span></div><div class="row"><span>Summe Passiva</span><span class="neg">−${f(TP)}</span></div>
+<div class="row tot"><span>Nettovermögen</span><span>${f(T-TP)}</span></div></div>`}
 function chart(c){const r=c.s.rest,n=r.length,W=300,H=110,mx=r[0]||1;
 const step=Math.max(1,Math.floor(n/60));const pts=[];for(let m=0;m<n;m+=step)pts.push(`${m/(n-1)*W},${H-r[m]/mx*H}`);pts.push(`${W},${H}`);
 let mk='';if(c.mb!=null&&c.mb>0&&c.mb<n)mk=`<line x1="${c.mb/(n-1)*W}" x2="${c.mb/(n-1)*W}" y1="0" y2="${H}" stroke="#e0a030" stroke-dasharray="4 3" stroke-width="2"/>`;
@@ -205,12 +216,12 @@ body+=`<div class="card" style="margin-top:12px"><h3>Anschlussfinanzierung ab ${
 return`<div class="card"><h3>${p.name}</h3><div class="sub">Stand ${p.datum}: ${f(p.wert)} · Zins ${String(p.zins).replace('.',',')} % · Rate ${f(R)} p.a.</div>${c.s.ok?chart(c):''}</div>${body}
 <button class="btn s" onclick="cred=null;draw()">Zurück</button><button class="btn s" onclick="edit=${p.id};tab='form';draw()">Kredit bearbeiten</button>
 <div class="sub" style="margin-top:10px">Vereinfachung: monatliche Tilgung, Zinsen auf Restschuld, Rate gleichbleibend; Sondertilgungen und Gebühren nicht berücksichtigt.</div>`}
-/* Zukunft */
 function lineChart(ser){const W=300,H=130;const all=ser.flatMap(s=>s.v),mx=Math.max(...all),mn=Math.min(0,...all),n=ser[0].v.length;
 const X=i=>i/(n-1)*W,Y=v=>H-(v-mn)/((mx-mn)||1)*H;
 const z=mn<0?`<line x1="0" x2="${W}" y1="${Y(0)}" y2="${Y(0)}" stroke="#ccc"/>`:'';
 return`<svg viewBox="0 0 300 140" width="100%">${z}${ser.map(s=>`<polyline fill="none" stroke="${s.c}" stroke-width="2.5" points="${s.v.map((v,i)=>X(i)+','+Y(v)).join(' ')}"/>`).join('')}</svg>
 <div class="sub">${ser.map(s=>`<i class="dot" style="background:${s.c}"></i>${s.n}`).join(' &nbsp; ')}</div>`}
+const realR=(r,i)=>((1+r)/(1+i)-1);
 function zuk(){const tb=`<div class="tabs">${[['sz','Szenarien'],['st','Stresstest'],['an','Annahmen']].map(([k,n])=>`<button class="${zsub==k?'on':''}" onclick="zsub='${k}';draw()">${n}</button>`).join('')}</div>`;
 const A=S.ann,L=P();
 if(!L.length)return tb+'<div class="card sub">Noch keine Daten.</div>';
@@ -220,7 +231,7 @@ return tb+`<div class="card"><h3>Nettovermögen real (Kaufkraft heute)</h3>${lin
 <div class="card"><table><tr><th>Jahr</th>${R.map(r=>`<th>${r.n}</th>`).join('')}</tr>
 <tr><td>Heute</td>${R.map(r=>`<td>${f(r.real[0])}</td>`).join('')}</tr>
 ${yrs.map(y=>`<tr><td>+${y} J.</td>${R.map(r=>`<td>${f(r.real[y])}</td>`).join('')}</tr>`).join('')}</table>
-<div class="sub" style="margin-top:8px">Real = nominal ÷ (1+${(A.infl*100).toFixed(1).replace('.',',')} % Inflation)^Jahre. Szenarien verschieben die Rendite risikobehafteter Klassen (Aktien, ETFs, Immobilien, Krypto, Gold) um ±2 Prozentpunkte. Kredite laufen nach ihrem Tilgungsplan; ohne Sollzins/Rate bleibt der Betrag konstant. Ohne Steuern, Kosten, Renten/Pensionen.</div></div>`}
+<div class="sub" style="margin-top:8px">Renditen sind nominal eingegeben; die Anzeige wird danach durch (1+Inflation)^Jahre geteilt. Beispiel: 7 % nominal bei 2 % Inflation ≈ ${(realR(.07,A.infl)*100).toFixed(1).replace('.',',')} % real (nicht 9 %). Szenarien verschieben Aktien, ETFs, Immobilien, Krypto, Gold um ±2 Prozentpunkte. Kredite laufen nach ihrem Tilgungsplan. Ohne Steuern, Kosten, Renten/Pensionen.</div></div>`}
 if(zsub=='st'){const r=stress(stn,L),sh=STR[stn],d=r.na-r.nb;
 const zs=L.filter(p=>p.typ=='p').map(p=>({p,c:ci(p)})).filter(x=>x.c.has&&x.c.s.ok&&x.c.mb!=null&&x.c.mb>=0&&x.c.mb<x.c.s.n).map(x=>({n:x.p.name,m:pmtFor(x.c.s.rest[x.c.mb],+x.p.zins+3,x.c.s.n-x.c.mb)-(+x.p.rate)}));
 return tb+`<div class="tabs" style="flex-wrap:wrap">${Object.keys(STR).map(k=>`<button style="flex:1 1 45%" class="${stn==k?'on':''}" onclick="stn='${k}';draw()">${k}</button>`).join('')}</div>
@@ -228,14 +239,19 @@ return tb+`<div class="tabs" style="flex-wrap:wrap">${Object.keys(STR).map(k=>`<
 <div class="${d<0?'neg':'pos'}">${d<0?'−':'+'}${f(Math.abs(d))} (${pc(r.nb?d/Math.abs(r.nb):0)}) gegenüber heute ${f(r.nb)}</div></div>
 <div class="grid"><div class="k"><span class="sub">Verschuldung vorher → nachher</span><b style="font-size:16px">${pc(r.ltvB)} → ${pc(r.ltvA)}</b></div><div class="k"><span class="sub">Sofort verfügbar</span><b style="font-size:16px">${f(r.liqB)} → ${f(r.liqA)}</b></div></div>
 <div class="card" style="margin-top:12px"><h3>Wirkung je Klasse</h3><table><tr><th>Klasse</th><th>Schock</th><th>Δ €</th></tr>
-${Object.entries(r.rows).filter(([k])=>sh[k]).map(([k,v])=>`<tr><td>${k}</td><td>${pc(sh[k])}</td><td class="${v.a<v.b?'neg':'pos'}">${f(v.a-v.b)}</td></tr>`).join('')}</table>
+${Object.entries(r.rows).filter(([k])=>sh[k]).map(([k,v])=>`<tr><td>${k}</td><td>${pc(sh[k])}</td><td class="${v.a<v.b?'neg':'pos'}">${f(v.a-v.b)}</td></tr>`).join('')}
+<tr><td><b>Summe</b></td><td></td><td class="${d<0?'neg':'pos'}"><b>${f(d)}</b></td></tr></table>
 <div class="sub" style="margin-top:8px">Schockannahmen sind illustrativ, keine Prognose. Nicht betroffene Klassen bleiben unverändert.</div></div>
 <div class="card"><h3>Zinsschock: Anschluss +3 Prozentpunkte</h3>${zs.length?zs.map(x=>`<div class="row"><span>${x.n}</span><b class="neg">+${f(x.m)} p.a. Rate</b></div>`).join('')+'<div class="sub">Mehr-Rate bei gleichem Tilgungsende ab Ende der Zinsbindung.</div>':'<div class="sub">Keine Kredite mit Zinsbindungsende vor Tilgung (oder Zins/Rate/Bindung fehlen).</div>'}</div>`}
 const inp=(id,l,v,st='0.1')=>`<div><label>${l}</label><input id="${id}" type="number" inputmode="decimal" step="${st}" value="${v}"></div>`;
 return tb+`<div class="card"><h3>Allgemein</h3><div class="two">${inp('a_infl','Inflation % p.a.',(A.infl*100).toFixed(2))}${inp('a_years','Horizont (Jahre, 1–40)',A.years,'1')}
-${inp('a_spar','Sparrate € p.a.',A.spar,'100')}${inp('a_rs','Rendite Sparpot % p.a.',(A.rs*100).toFixed(2))}${inp('a_auf','Zins-Aufschlag nach Zinsbindung (pp)',A.auf,'0.1')}</div></div>
-<div class="card"><h3>Erwartete Rendite nominal % p.a.</h3><div class="two">${KL.filter(k=>k!='Hypothek').map(k=>inp('r_'+k,k,((A.ret[k]!=null?A.ret[k]:.02)*100).toFixed(2))).join('')}</div>
-<button class="btn" onclick="setAnn()">Annahmen speichern</button><button class="btn s" onclick="if(confirm('Auf Standardwerte zurücksetzen?')){S.ann=defAnn();save();draw()}">Standard</button></div>`}
+${inp('a_spar','Sparrate € p.a. (neue Einzahlungen)',A.spar,'100')}${inp('a_rs','Rendite Sparpot nominal % p.a.',(A.rs*100).toFixed(2))}${inp('a_auf','Zins-Aufschlag nach Zinsbindung (pp)',A.auf,'0.1')}</div>
+<div class="sub" style="margin-top:8px">Sparpot = künftige Einzahlungen (Sparrate), die zusätzlich zu den heutigen Positionen angelegt werden und mit dieser Rendite wachsen. Bei Sparrate 0 hat er keine Wirkung.</div></div>
+<div class="card"><h3>Erwartete Rendite nominal % p.a.</h3><div class="sub">Real = (1+nominal)/(1+Inflation)−1, die Inflation wird also abgezogen, nicht addiert.</div><div class="two">${KL.filter(k=>k!='Hypothek').map(k=>{const r=(A.ret[k]!=null?A.ret[k]:.02);return inp('r_'+k,k+' (real '+(realR(r,A.infl)*100).toFixed(1).replace('.',',')+' %)',(r*100).toFixed(2))}).join('')}</div>
+<button class="btn" onclick="setAnn()">Annahmen speichern</button>
+<button class="btn s" onclick="vorsicht()">Vorsichtige Vorschläge einsetzen (ungespeichert)</button>
+<button class="btn s" onclick="if(confirm('Auf Standardwerte zurücksetzen?')){S.ann=defAnn();save();draw()}">Standard</button></div>`}
+function vorsicht(){for(const k in VORSICHT){const e=document.getElementById('r_'+k);if(e)e.value=VORSICHT[k].toFixed(2)}}
 function setAnn(){const g=id=>parseFloat(document.getElementById(id).value.replace(',','.'));const A=S.ann;
 const y=Math.round(g('a_years'));if(!(y>=1&&y<=40))return alert('Horizont 1–40 Jahre');
 A.infl=g('a_infl')/100;A.years=y;A.spar=g('a_spar')||0;A.rs=g('a_rs')/100;A.auf=g('a_auf')||0;

@@ -1,0 +1,116 @@
+<!DOCTYPE html><html lang="de"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f2a43"><link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Bilanz"><title>Vermögensbilanz</title>
+<style>
+:root{--bg:#f3f5f8;--c:#fff;--t:#14202e;--m:#6b7785;--p:#0f2a43;--g:#1a9b6c;--r:#c8453b;--o:#e0a030}
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--t);padding-bottom:84px}
+header{background:var(--p);color:#fff;padding:14px 16px 12px;position:sticky;top:0;z-index:5}
+header h1{margin:0;font-size:18px}.seg{display:flex;gap:6px;margin-top:8px}
+.seg button{flex:1;padding:7px;border:0;border-radius:16px;background:#ffffff22;color:#fff;font-size:13px}
+.seg button.on{background:#fff;color:var(--p);font-weight:600}
+main{padding:12px}.card{background:var(--c);border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px #0001}
+.big{font-size:32px;font-weight:700}.sub{color:var(--m);font-size:13px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.k{background:var(--c);border-radius:12px;padding:12px;box-shadow:0 1px 3px #0001}
+.k b{display:block;font-size:20px;margin-top:4px}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
+.row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid #eef0f3}
+.row:last-child{border:0}.row small{color:var(--m);display:block}.neg{color:var(--r)}
+nav{position:fixed;bottom:0;left:0;right:0;background:#fff;display:flex;border-top:1px solid #e2e6eb;padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;border:0;background:none;padding:12px 4px;font-size:12px;color:var(--m)}nav button.on{color:var(--p);font-weight:700}
+label{display:block;font-size:12px;color:var(--m);margin:10px 0 3px}input,select,textarea{width:100%;padding:11px;border:1px solid #d5dae1;border-radius:10px;font-size:16px;background:#fff}
+.btn{width:100%;padding:13px;border:0;border-radius:12px;background:var(--p);color:#fff;font-size:16px;margin-top:14px}.btn.s{background:#e8ebf0;color:var(--p)}.btn.d{background:#fbe9e7;color:var(--r)}
+h3{margin:4px 0 8px;font-size:15px}.bar{height:8px;border-radius:4px;background:#e8ebf0;overflow:hidden}.bar i{display:block;height:100%}
+.warn{font-size:12px;padding:3px 8px;border-radius:10px;background:#fdf3dc;color:#8a5d00}
+</style></head><body>
+<header><h1>Vermögensbilanz</h1><div class="seg" id="own"></div></header>
+<main id="v"></main>
+<nav id="nav"></nav>
+<script>
+const KL=['Immobilien','Aktien','ETFs','Anleihen','Lebensversicherung','Gold','Tagesgeld','Bargeld','Krypto','Hypothek','Sonstiges'];
+const COL={Immobilien:'#0f2a43',Aktien:'#1a9b6c',ETFs:'#38b2a0',Anleihen:'#6c8ebf',Lebensversicherung:'#e0a030',Gold:'#d4b13a',Tagesgeld:'#8fb8de',Bargeld:'#a0a8b2',Krypto:'#c8453b',Hypothek:'#7a3b3b',Sonstiges:'#999'};
+const OW=['Alle','Sascha','Janina','Gemeinsam'],LQ=['sofort','mittel','gebunden'];
+const D='2026-04-25';
+const seed=[
+['a','Erkrath (Eigennutzung)','Immobilien','Gemeinsam','gebunden',660000],
+['a','Fehmarn','Immobilien','Gemeinsam','gebunden',350000],
+['a','Consors - Aktien','Aktien','Sascha','sofort',202000],
+['a','Union - Riester (Sascha)','Aktien','Sascha','gebunden',131000],
+['a','Debeka','Lebensversicherung','Sascha','gebunden',54904.31],
+['a','Union - Riester (Janina)','Aktien','Janina','gebunden',52801],
+['a','Consors - Euwax Gold II','Gold','Gemeinsam','sofort',25600],
+['a','DWS GMF','Tagesgeld','Gemeinsam','sofort',20000],
+['a','Proxalto (Janina)','Lebensversicherung','Janina','mittel',21494],
+['a','Coinbase','Krypto','Sascha','sofort',5100],
+['p','Sparda Bank West','Hypothek','Gemeinsam','gebunden',203000,'',16212],
+['p','Sparkasse Ostholstein','Hypothek','Gemeinsam','gebunden',294795.8,'',13200]];
+let S=JSON.parse(localStorage.getItem('vb')||'null')||{v:1,pos:seed.map((s,i)=>({id:i+1,typ:s[0],name:s[1],klasse:s[2],owner:s[3],liq:s[4],wert:s[5],datum:D,zins:s[6]||'',rate:s[7]||'',bindung:'',notiz:''})),hist:[]};
+let tab='home',own='Alle',edit=null;
+const save=()=>localStorage.setItem('vb',JSON.stringify(S));
+const f=n=>new Intl.NumberFormat('de-DE',{maximumFractionDigits:0}).format(n)+' €';
+const pc=n=>(n*100).toFixed(1).replace('.',',')+' %';
+const P=()=>S.pos.filter(p=>own=='Alle'||p.owner==own);
+function kpi(){const a=P().filter(p=>p.typ=='a'),l=P().filter(p=>p.typ=='p');
+const A=a.reduce((s,p)=>s+ +p.wert,0),L=l.reduce((s,p)=>s+ +p.wert,0);
+const imm=a.filter(p=>p.klasse=='Immobilien').reduce((s,p)=>s+ +p.wert,0);
+const liq=a.filter(p=>p.liq=='sofort').reduce((s,p)=>s+ +p.wert,0);
+const rate=l.reduce((s,p)=>s+ +(p.rate||0),0);
+const old=P().filter(p=>(Date.now()-new Date(p.datum))/864e5>90).length;
+return{A,L,N:A-L,ltv:A?L/A:0,imm:A?imm/A:0,liq,rate,old}}
+function snap(){const m=new Date().toISOString().slice(0,7);S.hist=S.hist.filter(h=>h.m!=m);S.hist.push({m,N:S.pos.filter(p=>p.typ=='a').reduce((s,p)=>s+ +p.wert,0)-S.pos.filter(p=>p.typ=='p').reduce((s,p)=>s+ +p.wert,0)});save()}
+function donut(items){const T=items.reduce((s,i)=>s+i[1],0);if(!T)return'';let a=-Math.PI/2,r=70,c=90,out='';
+items.forEach(([n,v])=>{const d=v/T*2*Math.PI,x1=c+r*Math.cos(a),y1=c+r*Math.sin(a),x2=c+r*Math.cos(a+d-.001),y2=c+r*Math.sin(a+d-.001);
+out+=`<path d="M${x1} ${y1}A${r} ${r} 0 ${d>Math.PI?1:0} 1 ${x2} ${y2}" stroke="${COL[n]||'#999'}" stroke-width="28" fill="none"/>`;a+=d});
+return`<svg viewBox="0 0 180 180" width="190" style="display:block;margin:auto">${out}<text x="90" y="95" text-anchor="middle" font-size="13" fill="#6b7785">Aktiva</text></svg>`}
+function spark(){const h=S.hist;if(h.length<2)return'<div class="sub">Verlauf entsteht mit jedem Monats-Update.</div>';
+const mx=Math.max(...h.map(x=>x.N)),mn=Math.min(...h.map(x=>x.N)),w=300,hh=70;
+const pts=h.map((x,i)=>`${i*w/(h.length-1)},${hh-(x.N-mn)/((mx-mn)||1)*hh}`).join(' ');
+return`<svg viewBox="0 0 300 80" width="100%"><polyline points="${pts}" fill="none" stroke="#0f2a43" stroke-width="2.5"/></svg>`}
+function home(){const k=kpi();
+const ampel=(v,g,y)=>v<=g?'var(--g)':v<=y?'var(--o)':'var(--r)';
+return`<div class="card"><div class="sub">Nettovermögen · ${own} · ohne Renten/Pensionen</div><div class="big">${f(k.N)}</div>${spark()}</div>
+<div class="grid"><div class="k"><span class="sub">Aktiva</span><b>${f(k.A)}</b></div><div class="k"><span class="sub">Passiva</span><b class="neg">${f(k.L)}</b></div>
+<div class="k"><span class="sub"><i class="dot" style="background:${ampel(k.ltv,.3,.5)}"></i>Verschuldung</span><b>${pc(k.ltv)}</b></div>
+<div class="k"><span class="sub"><i class="dot" style="background:${ampel(k.imm,.4,.6)}"></i>Immobilienanteil</span><b>${pc(k.imm)}</b></div>
+<div class="k"><span class="sub">Sofort verfügbar</span><b>${f(k.liq)}</b></div>
+<div class="k"><span class="sub">Kreditraten p.a.</span><b>${f(k.rate)}</b></div></div>
+${k.old?`<div class="card" style="margin-top:12px"><span class="warn">${k.old} Position(en) älter als 90 Tage</span></div>`:''}
+<button class="btn s" onclick="snap();alert('Monatsstand gespeichert')">Monatsstand speichern</button>`}
+function bil(){const g=t=>P().filter(p=>p.typ==t).sort((a,b)=>b.wert-a.wert).map(p=>`<div class="row" onclick="edit=${p.id};tab='form';draw()"><div>${p.name}<small>${p.klasse} · ${p.owner} · ${p.liq} · ${p.datum}</small></div><b>${t=='p'?'−':''}${f(p.wert)}</b></div>`).join('');
+const k=kpi();return`<div class="card"><h3>Aktiva · ${f(k.A)}</h3>${g('a')}</div><div class="card"><h3>Passiva · ${f(k.L)}</h3>${g('p')}</div>`}
+function alloc(){const a=P().filter(p=>p.typ=='a'),by={},li={};a.forEach(p=>{by[p.klasse]=(by[p.klasse]||0)+ +p.wert;li[p.liq]=(li[p.liq]||0)+ +p.wert});
+const T=a.reduce((s,p)=>s+ +p.wert,0),it=Object.entries(by).sort((x,y)=>y[1]-x[1]);
+return`<div class="card">${donut(it)}${it.map(([n,v])=>`<div class="row"><span><i class="dot" style="background:${COL[n]}"></i>${n}</span><span>${pc(v/T)} · ${f(v)}</span></div>`).join('')}</div>
+<div class="card"><h3>Nach Liquidität</h3>${LQ.map(q=>`<div class="row"><span>${q}</span><span>${pc((li[q]||0)/T)}</span></div><div class="bar"><i style="width:${(li[q]||0)/T*100}%;background:var(--p)"></i></div>`).join('')}</div>`}
+function form(){const p=S.pos.find(x=>x.id==edit)||{id:0,typ:'a',name:'',klasse:'Aktien',owner:own=='Alle'?'Gemeinsam':own,liq:'sofort',wert:'',datum:new Date().toISOString().slice(0,10),zins:'',rate:'',bindung:'',notiz:''};
+const o=(a,v)=>a.map(x=>`<option ${x==v?'selected':''}>${x}</option>`).join('');
+return`<div class="card"><h3>${p.id?'Position bearbeiten':'Neue Position'}</h3>
+<label>Typ</label><select id="typ"><option value="a" ${p.typ=='a'?'selected':''}>Aktivum</option><option value="p" ${p.typ=='p'?'selected':''}>Passivum</option></select>
+<label>Name</label><input id="name" value="${p.name}"><label>Assetklasse</label><select id="klasse">${o(KL,p.klasse)}</select>
+<label>Eigentümer</label><select id="owner">${o(OW.slice(1),p.owner)}</select><label>Liquidität</label><select id="liq">${o(LQ,p.liq)}</select>
+<label>Aktueller Wert (€, positiv eingeben)</label><input id="wert" type="number" inputmode="decimal" value="${p.wert}">
+<label>Bewertungsdatum</label><input id="datum" type="date" value="${p.datum}">
+<label>Nur Kredit: Sollzins (%)</label><input id="zins" type="number" inputmode="decimal" step="0.01" value="${p.zins}">
+<label>Nur Kredit: Rate p.a. (€)</label><input id="rate" type="number" inputmode="decimal" value="${p.rate}">
+<label>Nur Kredit: Ende Zinsbindung</label><input id="bindung" type="date" value="${p.bindung}">
+<label>Notiz</label><textarea id="notiz" rows="2">${p.notiz}</textarea>
+<button class="btn" onclick="sv(${p.id})">Speichern</button>${p.id?`<button class="btn d" onclick="del(${p.id})">Löschen</button>`:''}<button class="btn s" onclick="tab='bil';draw()">Abbrechen</button></div>`}
+function sv(id){const g=x=>document.getElementById(x).value;const o={typ:g('typ'),name:g('name'),klasse:g('klasse'),owner:g('owner'),liq:g('liq'),wert:+g('wert'),datum:g('datum'),zins:g('zins'),rate:g('rate'),bindung:g('bindung'),notiz:g('notiz')};
+if(!o.name||isNaN(o.wert)){alert('Name und Wert fehlen');return}
+if(id){Object.assign(S.pos.find(x=>x.id==id),o)}else{o.id=Math.max(0,...S.pos.map(x=>x.id))+1;S.pos.push(o)}
+save();tab='bil';edit=null;draw()}
+function del(id){if(confirm('Löschen?')){S.pos=S.pos.filter(x=>x.id!=id);save();tab='bil';draw()}}
+function dat(){return`<div class="card"><h3>Daten</h3><div class="sub">Alles liegt nur lokal in diesem Browser. Sichere regelmäßig.</div>
+<button class="btn" onclick="ex()">Backup exportieren (JSON)</button>
+<button class="btn s" onclick="document.getElementById('im').click()">Backup importieren</button>
+<input type="file" id="im" hidden accept=".json" onchange="im(event)">
+<button class="btn d" onclick="if(confirm('Alle Daten auf Startwerte zurücksetzen?')){localStorage.removeItem('vb');location.reload()}">Zurücksetzen</button></div>
+<div class="card"><h3>Modul Ansprüche</h3><div class="sub">Renten und Pensionen: noch nicht aktiv (Erweiterung vorgesehen).</div></div>`}
+function ex(){const b=new Blob([JSON.stringify(S,null,1)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='vermoegensbilanz_backup.json';a.click()}
+function im(e){const r=new FileReader();r.onload=()=>{S=JSON.parse(r.result);save();draw()};r.readAsText(e.target.files[0])}
+const T={home:['Start',home],bil:['Bilanz',bil],alloc:['Struktur',alloc],form:['Neu',form],dat:['Daten',dat]};
+function draw(){document.getElementById('own').innerHTML=OW.map(o=>`<button class="${o==own?'on':''}" onclick="own='${o}';draw()">${o}</button>`).join('');
+document.getElementById('nav').innerHTML=['home','bil','alloc','form','dat'].map(k=>`<button class="${tab==k?'on':''}" onclick="${k=='form'?'edit=null;':''}tab='${k}';draw()">${T[k][0]}</button>`).join('');
+document.getElementById('v').innerHTML=T[tab][1]();window.scrollTo(0,0)}
+draw();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
+if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();
+</script></body></html>
